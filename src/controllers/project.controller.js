@@ -173,24 +173,51 @@ const getMyMentoredProjects = async (req, res) => {
  * @access  Private (Hanya mentor proyek)
  */
 const completeProject = async (req, res) => {
+  // --- LOG PERTAMA DI CONTROLLER ---
+  console.log(`[CONTROLLER LOG] Permintaan berhasil masuk ke fungsi completeProject.`);
+  // ---------------------------------
   try {
     const project = await Project.findById(req.params.id);
-    if (!project) return res.status(404).json({ message: 'Proyek tidak ditemukan' });
+    if (!project) {
+      console.log('[CONTROLLER LOG] Proyek tidak ditemukan.');
+      return res.status(404).json({ message: 'Proyek tidak ditemukan' });
+    }
 
     // Otorisasi: Pastikan pengguna adalah mentor dari proyek ini
     if (!project.mentor || !project.mentor.equals(req.user._id)) {
+      console.log('[CONTROLLER LOG] Otorisasi GAGAL. Pengguna bukan mentor.');
       return res.status(403).json({ message: 'Anda bukan mentor dari proyek ini' });
     }
 
+    console.log('[CONTROLLER LOG] Otorisasi BERHASIL. Menyelesaikan proyek...');
     project.status = 'Selesai';
-    // Opsi untuk menampilkan di galeri, bisa dikontrol dari frontend
     project.isPublic = req.body.isPublic || project.isPublic; 
     await project.save();
     res.json(project);
   } catch (error) {
+    // --- LOG JIKA TERJADI CRASH ---
+    console.error('[CONTROLLER ERROR] Terjadi crash di dalam completeProject:', error);
+    // -----------------------------
     res.status(500).json({ message: 'Gagal menyelesaikan proyek', error: error.message });
   }
 };
+
+/**
+ * @desc    Mendapatkan semua proyek yang publik untuk galeri
+ * @route   GET /api/projects/gallery
+ * @access  Public
+ */
+const getPublicProjects = async (req, res) => {
+  try {
+    const projects = await Project.find({ status: 'Selesai', isPublic: true })
+      .populate('submittedBy', 'name') // Ambil nama pembuat proyek
+      .sort({ updatedAt: -1 }); // Tampilkan yang terbaru
+    res.json(projects);
+  } catch (error) {
+    res.status(500).json({ message: 'Gagal mengambil data galeri proyek', error: error.message });
+  }
+};
+
 
 module.exports = {
   createProject,
@@ -203,4 +230,5 @@ module.exports = {
   addFeedback,
   getMyMentoredProjects,
   completeProject,
+  getPublicProjects,
 };
