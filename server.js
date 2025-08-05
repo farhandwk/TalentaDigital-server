@@ -11,6 +11,7 @@ const userRoutes = require('./src/routes/user.routes.js');
 const quizRoutes = require('./src/routes/quiz.routes.js');
 const courseRoutes = require('./src/routes/course.routes.js');
 const careerRoutes = require('./src/routes/career.routes.js')
+const projectRoutes = require('./src/routes/project.routes.js');
 
 dotenv.config();
 connectDB();
@@ -29,6 +30,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/career', careerRoutes)
+app.use('/api/projects', projectRoutes);
 
 // Rute health check untuk memastikan server hidup
 app.get('/api/health', (req, res) => {
