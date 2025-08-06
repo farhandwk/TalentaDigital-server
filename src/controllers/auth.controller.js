@@ -4,53 +4,41 @@ const User = require('../models/user.model');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 
-// Inisialisasi Google Auth Client
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Fungsi helper untuk membuat token JWT kita sendiri
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };
 
-/**
- * @desc    Mendaftarkan pengguna baru dengan email/password
- * @route   POST /api/auth/register
- * @access  Public
- */
 const registerUser = async (req, res) => {
-  console.log('Request Body Diterima di Backend:', req.body);
   try {
     const { name, email, password, invitationCode } = req.body;
-
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Harap isi semua field yang wajib diisi' });
     }
-
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: 'Pengguna dengan email ini sudah terdaftar' });
     }
-
     let userRole = 'learner';
     if (invitationCode && invitationCode === process.env.TRAINER_INVITATION_CODE) {
       userRole = 'trainer';
     }
-
     const user = await User.create({
       name,
       email,
       password,
       role: userRole,
     });
-
     if (user) {
       res.status(201).json({
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture, // Pastikan ini ada
         token: generateToken(user._id),
       });
     } else {
@@ -61,22 +49,17 @@ const registerUser = async (req, res) => {
   }
 };
 
-/**
- * @desc    Autentikasi pengguna dengan email/password
- * @route   POST /api/auth/login
- * @access  Public
- */
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-
     if (user && (await user.matchPassword(password))) {
       res.json({
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
+        profilePicture: user.profilePicture, // Pastikan ini ada
         token: generateToken(user._id),
       });
     } else {
@@ -87,11 +70,6 @@ const loginUser = async (req, res) => {
   }
 };
 
-/**
- * @desc    Autentikasi dengan Google
- * @route   POST /api/auth/google
- * @access  Public
- */
 const googleLogin = async (req, res) => {
   try {
     const { credential } = req.body;
@@ -105,32 +83,35 @@ const googleLogin = async (req, res) => {
     let user = await User.findOne({ email });
 
     if (user) {
-      if (!user.googleId) {
-        user.googleId = googleId;
-        await user.save();
-      }
+      // Jika pengguna ada, perbarui data mereka jika perlu
+      user.googleId = user.googleId || googleId;
+      // Perbarui foto profil dengan yang terbaru dari Google
+      user.profilePicture = picture; 
+      await user.save();
     } else {
+      // Jika pengguna belum ada, buat pengguna baru
       user = await User.create({
         name,
         email,
         googleId,
-        profilePicture: picture,
+        profilePicture: picture, // Gunakan foto dari Google
         role: 'learner',
       });
     }
 
+    // Kirim respons dengan data pengguna yang sudah lengkap
     res.status(200).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
+      profilePicture: user.profilePicture, // <-- PERBAIKAN UTAMA DI SINI
       token: generateToken(user._id),
     });
   } catch (error) {
     res.status(400).json({ message: 'Login dengan Google gagal', error: error.message });
   }
 };
-
 
 module.exports = {
   registerUser,

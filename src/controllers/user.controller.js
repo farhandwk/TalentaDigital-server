@@ -12,6 +12,7 @@ const getUserProfile = async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      picture: user.profilePicture,
       role: user.role,
     });
   } else {
