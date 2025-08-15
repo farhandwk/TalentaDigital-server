@@ -112,10 +112,20 @@ const acceptMentorship = async (req, res) => {
     if (project.status !== 'Menunggu Mentor') {
       return res.status(400).json({ message: 'Proyek ini tidak sedang menunggu mentor' });
     }
+
     project.mentor = req.user._id;
     project.status = 'Dalam Bimbingan';
     await project.save();
-    res.json(project);
+
+    // --- PERBAIKAN DI SINI ---
+    // Ambil kembali datanya dan populate dengan detail mentor sebelum mengirim
+    const populatedProject = await Project.findById(project._id)
+      .populate('mentor', 'name')
+      .populate('submittedBy', 'name')
+      .populate('feedback.author', 'name role');
+    // -------------------------
+
+    res.json(populatedProject); // Kirim hasil yang sudah lengkap
   } catch (error) {
     res.status(500).json({ message: 'Gagal menerima mentorship', error: error.message });
   }
@@ -173,30 +183,26 @@ const getMyMentoredProjects = async (req, res) => {
  * @access  Private (Hanya mentor proyek)
  */
 const completeProject = async (req, res) => {
-  // --- LOG PERTAMA DI CONTROLLER ---
-  console.log(`[CONTROLLER LOG] Permintaan berhasil masuk ke fungsi completeProject.`);
-  // ---------------------------------
   try {
     const project = await Project.findById(req.params.id);
     if (!project) {
-      console.log('[CONTROLLER LOG] Proyek tidak ditemukan.');
+      console.log('[DEBUG] Proyek tidak ditemukan di database.');
       return res.status(404).json({ message: 'Proyek tidak ditemukan' });
     }
-
-    // Otorisasi: Pastikan pengguna adalah mentor dari proyek ini
+    // Otorisasi: Pastikan pengguna adalah mentor dari acce ini
     if (!project.mentor || !project.mentor.equals(req.user._id)) {
-      console.log('[CONTROLLER LOG] Otorisasi GAGAL. Pengguna bukan mentor.');
       return res.status(403).json({ message: 'Anda bukan mentor dari proyek ini' });
     }
 
-    console.log('[CONTROLLER LOG] Otorisasi BERHASIL. Menyelesaikan proyek...');
     project.status = 'Selesai';
     project.isPublic = req.body.isPublic || project.isPublic; 
     await project.save();
+    
     res.json(project);
+    
   } catch (error) {
     // --- LOG JIKA TERJADI CRASH ---
-    console.error('[CONTROLLER ERROR] Terjadi crash di dalam completeProject:', error);
+    console.error('[FATAL ERROR] Terjadi crash di dalam completeProject:', error);
     // -----------------------------
     res.status(500).json({ message: 'Gagal menyelesaikan proyek', error: error.message });
   }
